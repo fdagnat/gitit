@@ -38,7 +38,7 @@ import Network.Captcha.ReCaptcha (captchaFields, validateCaptcha)
 import Text.XHtml hiding ( (</>), dir, method, password, rev )
 import qualified Text.XHtml as X ( password )
 import System.Process (readProcessWithExitCode)
-import Control.Monad (unless, liftM, mplus)
+import Control.Monad (unless, liftM, mplus, when)
 import Control.Monad.Trans (liftIO)
 import System.Exit
 import System.Log.Logger (logM, Priority(..))
@@ -53,6 +53,9 @@ import Network.HTTP (urlEncodeVars, urlDecode, urlEncode)
 import Codec.Binary.UTF8.String (encodeString)
 import Data.ByteString.UTF8 (toString)
 import Network.Gitit.Rpxnow as R
+import LDAP
+import Text.Printf (printf)
+import System.Log.Logger (debugM, warningM)
 
 data ValidationType = Register
                     | ResetPassword
@@ -378,8 +381,11 @@ loginUser params = do
   let uname = pUsername params
   let pword = pPassword params
   let destination = pDestination params
-  allowed <- authUser uname pword
   cfg <- getConfig
+  let authBackend' = authBackend cfg
+  allowed <- (case authBackend' of
+                FileBackend -> authUser
+                LDAPBackend -> authUserLDAP) uname pword
   if allowed
     then do
       key <- newSession (sessionData uname)
@@ -412,15 +418,15 @@ registerUserForm = registerForm >>=
 
 formAuthHandlers :: [Handler]
 formAuthHandlers =
-  [ dir "_register"  $ method GET >> registerUserForm
-  , dir "_register"  $ method POST >> withData registerUser
-  , dir "_login"     $ method GET  >> loginUserForm
+--  [ dir "_register"  $ method GET >> registerUserForm
+--  , dir "_register"  $ method POST >> withData registerUser
+  [ dir "_login"     $ method GET  >> loginUserForm
   , dir "_login"     $ method POST >> withData loginUser
   , dir "_logout"    $ method GET  >> withData logoutUser
-  , dir "_resetPassword"   $ method GET  >> withData resetPasswordRequestForm
-  , dir "_resetPassword"   $ method POST >> withData resetPasswordRequest
-  , dir "_doResetPassword" $ method GET  >> withData resetPassword
-  , dir "_doResetPassword" $ method POST >> withData doResetPassword
+--  , dir "_resetPassword"   $ method GET  >> withData resetPasswordRequestForm
+--  , dir "_resetPassword"   $ method POST >> withData resetPasswordRequest
+--  , dir "_doResetPassword" $ method GET  >> withData resetPassword
+--  , dir "_doResetPassword" $ method POST >> withData doResetPassword
   , dir "_user" currentUser
   ]
 
@@ -555,3 +561,52 @@ currentUser :: Handler
 currentUser = do
   req <- askRq
   ok $ toResponse $ maybe "" toString (getHeader "REMOTE_USER" req)
+
+ldapConnect :: String -> LDAPInt  -> String -> String -> IO LDAP
+ldapConnect host port dn passwd = do
+  ldap <- ldapInit host port
+  ldapSimpleBind ldap dn passwd
+  return ldap
+
+ldapAuthQuery :: LDAP -> Maybe String -> String -> IO LDAPEntry
+ldapAuthQuery ldapObj baseDN query = do
+  let scope = LdapScopeSubtree
+      attribs = LDAPAttrList ["id", "cn", "mail"]
+  ldapSearch ldapObj baseDN scope (Just query) attribs False >>= return . head
+
+{- | Quote any special characters part of search filters -}
+ldapQuote :: String -> String
+ldapQuote = concatMap quoteChar
+  where quoteChar c
+          | c `elem` "*\\()\NUL/" = printf "\\%02x" c
+          | otherwise = [c]
+
+authUserLDAP :: String -> String -> GititServerPart Bool
+authUserLDAP name pass = do
+  when (null pass) $ fail "LDAP password cannot be empty"
+
+  cfg <- getConfig
+  let host = ldapHost cfg
+      port = LDAP.ldapPort -- FIXME
+      dn = ldapConnDN cfg
+      baseDN = Just $ ldapBaseDN cfg
+      connPass = ldapPassword cfg
+      filterExpr = fromMaybe "" (ldapFilter cfg)
+      param = ldapQuote name
+      query = substitute "%s" param filterExpr
+  ldap <- liftIO $ ldapConnect host port dn connPass
+  user <- liftIO $ ldapAuthQuery ldap baseDN query
+
+  let userDN = ledn user
+      email = maybe "" head $ lookup "mail" $ leattrs user
+      fullname = maybe "" head $ lookup "cn" $ leattrs user
+
+  ok <- liftIO $ debugM "gitit" ("authenticating with DN " ++ userDN) >>
+    (ldapSimpleBind ldap userDN pass >> return True)
+    `catchLDAP` (\e -> warningM "gitit" ("authentication failure: " ++ show e)
+                  >> return False)
+
+  when ok ((liftIO $ mkUser fullname email "")
+           >>= (\user -> updateGititState (\s -> s { users = M.insert name user (users s) })))
+
+  return ok

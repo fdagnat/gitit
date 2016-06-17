@@ -1,10 +1,8 @@
-flags:
-  gitit:
-    plugins: true
-    network-uri: true
+flags: {}
 packages:
 - '.'
 extra-deps:
+- LDAP-0.6.10
 - filestore-0.6.1
 - recaptcha-0.1.0.3
 - uri-0.1.6.4
