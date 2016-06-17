@@ -97,7 +97,7 @@ extractConfig cp = do
       cfShowLHSBirdTracks <- get cp "DEFAULT" "show-lhs-bird-tracks"
       cfRequireAuthentication <- get cp "DEFAULT" "require-authentication"
       cfAuthenticationMethod <- get cp "DEFAULT" "authentication-method"
-      cfAuthenticationBackend <- get cp "DEFAULT" "authenticate-backend"
+      cfAuthenticationBackend <- get cp "DEFAULT" "authentication-backend"
       cfUserFile <- get cp "DEFAULT" "user-file"
       cfLdapHost <- get cp "LDAP" "host"
       cfLdapPort <- get cp "LDAP" "port"

@@ -144,7 +144,7 @@ data Config = Config {
   ldapPassword         :: String,
   -- | LDAP filter expression when authenticating. A %s placeholder is substitued
   -- | by the current user name.
-  ldapFilter           :: Maybe String,
+  ldapFilter           :: String,
   -- | Seconds of inactivity before session expires
   sessionTimeout       :: Int,
   -- | Directory containing page templates

@@ -591,7 +591,7 @@ authUserLDAP name pass = do
       dn = ldapConnDN cfg
       baseDN = Just $ ldapBaseDN cfg
       connPass = ldapPassword cfg
-      filterExpr = fromMaybe "" (ldapFilter cfg)
+      filterExpr = ldapFilter cfg
       param = ldapQuote name
       query = substitute "%s" param filterExpr
   ldap <- liftIO $ ldapConnect host port dn connPass
