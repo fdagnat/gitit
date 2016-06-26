@@ -1,9 +1,9 @@
 flags: {}
 packages:
 - '.'
+- 'filestore'
 extra-deps:
 - LDAP-0.6.10
-- filestore-0.6.1
 - recaptcha-0.1.0.3
 - uri-0.1.6.4
 resolver: lts-5.17
