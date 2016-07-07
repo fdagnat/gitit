@@ -1,9 +1,14 @@
-flags: {}
+flags:
+  gitit:
+    plugins: true
+    network-uri: true
 packages:
 - '.'
-- 'filestore'
+- location:
+    git: https://github.com/dtekcth/filestore
+    commit: a847cdcfba7540d80f6e0b4bbedbe60d24dcaa05
 extra-deps:
-- LDAP-0.6.10
 - recaptcha-0.1.0.3
 - uri-0.1.6.4
+- LDAP-0.6.10
 resolver: lts-5.17
