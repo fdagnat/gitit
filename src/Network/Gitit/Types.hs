@@ -126,6 +126,8 @@ data Config = Config {
   authHandler          :: Handler,
   -- | Path of users database
   userFile             :: FilePath,
+  -- | Path of email verification database
+  emailRequestFile     :: FilePath,
   -- | Seconds of inactivity before session expires
   sessionTimeout       :: Int,
   -- | Directory containing page templates
@@ -185,6 +187,8 @@ data Config = Config {
   mailCommand          :: String,
   -- | Text of password reset email
   resetPasswordMessage :: String,
+  -- | Text of account request email
+  requestAccountMessage :: String,
   -- | Markup syntax help for edit sidebar
   markupHelp           :: String,
   -- | Provide an atom feed?
