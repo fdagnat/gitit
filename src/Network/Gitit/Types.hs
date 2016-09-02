@@ -258,6 +258,7 @@ data User = User {
 data GititState = GititState {
   sessions       :: Sessions SessionData,
   users          :: M.Map String User,
+  emailRequests  :: M.Map String String,
   templatesPath  :: FilePath,
   renderPage     :: PageLayout -> Html -> Handler,
   plugins        :: [Plugin]
