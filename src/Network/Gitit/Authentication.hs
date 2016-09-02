@@ -132,6 +132,33 @@ resetLink base' user =
     (fromJust . importURL $ base' ++ "/_doResetPassword")
     [("username", uUsername user), ("reset_code", take 20 (pHashed (uPassword user)))]
 
+requestLink :: String -> String -> String -> String
+requestLink base' email code =
+  exportURL $ foldl add_param
+    (fromJust . importURL $ base' ++ "/_verifyEmail")
+    [("email", email), ("request_code", code)]
+
+
+sendRequestEmail :: String -> String -> GititServerPart ()
+sendRequestEmail email code = do
+  cfg <- getConfig
+  hostname <- liftIO getHostName
+  base' <- getWikiBase
+  let messageTemplate = T.newSTMP $ requestAccountMessage cfg
+  let filledTemplate = T.render .
+                       T.setAttribute "useremail" email .
+                       T.setAttribute "hostname" hostname .
+                       T.setAttribute "port" (show $ portNumber cfg) .
+                       T.setAttribute "requestlink" (requestLink base' email code) $
+                       messageTemplate
+  let (mailcommand:args) = words $ substitute "%s" email
+                           (mailCommand cfg)
+  (exitCode, _pOut, pErr) <- liftIO $ readProcessWithExitCode mailcommand args
+    filledTemplate
+  liftIO $ logM "gitit" WARNING $ "Sent email verification email to " ++ email
+  unless (exitCode == ExitSuccess) $
+    liftIO $ logM "gitit" WARNING $ mailcommand ++ " failed. " ++ pErr
+
 sendReregisterEmail :: User -> GititServerPart ()
 sendReregisterEmail user = do
   cfg <- getConfig
@@ -412,8 +439,8 @@ registerUserForm = registerForm >>=
 
 formAuthHandlers :: [Handler]
 formAuthHandlers =
-  [ dir "_register"  $ method GET >> registerUserForm
-  , dir "_register"  $ method POST >> withData registerUser
+  [ dir "_register"  $ method GET >> registerUserRequestForm
+  , dir "_register"  $ method POST >> withData registerUserRequest
   , dir "_login"     $ method GET  >> loginUserForm
   , dir "_login"     $ method POST >> withData loginUser
   , dir "_logout"    $ method GET  >> withData logoutUser
