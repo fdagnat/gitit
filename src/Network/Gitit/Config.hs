@@ -197,7 +197,7 @@ extractConfig cp = do
                                       "rpx"      -> msum rpxAuthHandlers
                                       _          -> mzero
         , userFile             = cfUserFile
-        , emailRequestFile     = cfEmailUserFile
+        , emailRequestFile     = cfEmailRequestFile
         , sessionTimeout       = readNumber "session-timeout" cfSessionTimeout * 60  -- convert minutes -> seconds
         , templatesDir         = cfTemplatesDir
         , logFile              = cfLogFile
