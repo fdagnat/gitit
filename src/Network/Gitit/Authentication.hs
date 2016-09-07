@@ -76,6 +76,58 @@ registerUser params = do
                          pPassword = pword,
                          pEmail = email }
 
+registerUserRequestForm :: Handler
+registerUserRequestForm = do
+  cfg <- getConfig
+
+  -- Create the form
+  let requestForm = gui "" ! [identifier "verifyEmail"] << fieldset <<
+                    [ label ! [thefor "email" ] << "Email: "
+                    , textfield "email" ! [size "20", intAttr "tabindex" 1]
+                    , stringToHtml " "
+                    , submit "verifyEmail" "Verify email" ! [intAttr "tabindex" 2]]
+
+      -- Fill the content with form if mail command is specified
+      contents = if null (mailCommand cfg)
+                 then p << "Sorry, email verification is not available."
+                 else requestForm
+
+  -- Render the page
+  formattedPage defaultPageLayout
+    { pgShowPageTools = False
+    , pgTabs = []
+    , pgTitle = "Verify your email" }
+    contents
+
+
+registerUserRequest :: Params -> Handler
+registerUserRequest params = do
+  -- Extract email and create a request code
+  (email, reqCode) <- liftIO requestFromParams
+
+  -- Create response
+  let response = p << [ stringToHtml "An email has been sent to "
+                  , bold $ stringToHtml email
+                  , br
+                  , stringToHtml
+                    "Please click on the enclosed link to verify your email."
+                  ]
+
+  sendRequestEmail email reqCode
+
+  -- Stores email request in file
+  addEmailRequest email reqCode
+
+  -- Render page
+  formattedPage defaultPageLayout
+    { pgShowPageTools = False
+    , pgTabs = []
+    , pgTitle = "Verifying your email" }
+    response
+
+  where requestFromParams :: IO (String, String)
+        requestFromParams = (mkEmailRequest . pEmail) params
+
 resetPasswordRequestForm :: Params -> Handler
 resetPasswordRequestForm _ = do
   let passwordForm = gui "" ! [identifier "resetPassword"] << fieldset <<
