@@ -144,6 +144,9 @@ writeEmailRequestFile conf = do
 getUser :: String -> GititServerPart (Maybe User)
 getUser uname = liftM (M.lookup uname) $ queryGititState users
 
+getEmailRequest :: String -> GititServerPart (Maybe String)
+getEmailRequest email = liftM (M.lookup email) $ queryGititState emailRequests
+
 isSession :: MonadIO m => SessionKey -> m Bool
 isSession key = liftM (M.member key . unsession) $ queryGititState sessions
 
