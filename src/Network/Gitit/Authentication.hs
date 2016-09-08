@@ -291,6 +291,99 @@ sendRequestEmail email code = do
   unless (exitCode == ExitSuccess) $
     liftIO $ logM "gitit" WARNING $ mailcommand ++ " failed. " ++ pErr
 
+-- | Validates an account request by comparing the stored request code to that
+-- of the client.
+validateEmailRequest :: Params -> (String -> Handler) -> Handler
+validateEmailRequest params postValidate = do
+  let email = pEmail params
+
+  emailRequest <- getEmailRequest email
+
+  let errors = case emailRequest of
+                 -- Email has not requested an account
+                 Nothing   -> ["Nonexisting account request"]
+
+                 -- Email has requested an account
+                 Just code -> if code == pRequestCode params
+                              then []
+                              else return "Your request code is invalid, try again or request a new code."
+
+  if null errors
+     -- If everyting was correct with the request code, continue to register account
+     then postValidate email
+
+    -- Otherwise display error message on empty page
+     else formattedPage defaultPageLayout
+           { pgMessages = errors
+           , pgShowPageTools = False
+           , pgTabs = []
+           , pgTitle = "Request an account" }
+           noHtml
+
+-- | Validates the email for the account request
+--
+-- If validation was successful, i.e the email has requested an account and
+--  the code matched the one stored on the server, then send user to the
+--  registration form.
+-- Otherwise display error message.
+registerFromEmailRequest :: Params -> Handler
+registerFromEmailRequest params = validateEmailRequest params $ \email ->
+  registerFromEmailRequestForm email >>=
+  formattedPage defaultPageLayout { pgShowPageTools = False
+                                  , pgTabs = []
+                                  , pgTitle = "Register for an account" }
+
+-- | Form for registering users after validating their request code.
+-- A username is automatically created from the email (by stripping the
+-- @domain.com part). This username and email is not changeable.
+registerFromEmailRequestForm :: String -> GititServerPart Html
+registerFromEmailRequestForm email = withData $ \params -> do
+  cfg  <- getConfig
+  dest <- case pDestination params of
+            "" -> getReferer
+            x  -> return x
+
+  -- Create field for access question
+  let accessQ = case accessQuestion cfg of
+                  Nothing -> noHtml
+                  Just (prompt, _) -> label !
+                    [thefor "accessCode"] << prompt
+                    +++ br +++
+                    X.password "accessCode" ! [size "15", intAttr "tabindex" 1]
+                    +++ br
+
+  -- Create Captcha field
+  let captcha = if useRecaptcha cfg
+                   then captchaFields (recaptchaPublicKey cfg) Nothing
+                   else noHtml
+
+  -- Create username from the email address and make it fixed in the form
+  let userName = takeWhile (/= '@') email
+
+  return $ gui "" ! [identifier "loginForm"] << fieldset <<
+    [ accessQ
+    , label ! [thefor "username"] << ("Username (created from email): ")
+    , br
+    , textfield "username" ! [size "20", strAttr "disabled" "true", value userName]
+    , br
+    , label ! [thefor "email"] << "Email (will not be displayed on the Wiki):"
+    , br
+    , textfield "email" ! [size "20", strAttr "disabled" "true", value email]
+    , br
+    , label ! [thefor "password"] << "Password (at least 6 characters):"
+    , br
+    , X.password "password" ! [size "20", intAttr "tabindex" 1]
+    , stringToHtml " "
+    , br
+    , label ! [thefor "password2"] << "Confirm Password:"
+    , br
+    , X.password "password2" ! [size "20", intAttr "tabindex" 2]
+    , stringToHtml " "
+    , br
+    , captcha
+    , textfield "destination" ! [thestyle "display: none;", value dest]
+    , submit "register" "Register" ! [intAttr "tabindex" 3]]
+
 registerForm :: GititServerPart Html
 registerForm = sharedForm Nothing
 
