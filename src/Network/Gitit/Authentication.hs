@@ -214,13 +214,14 @@ registerUserRequestForm = do
 
   -- Create the form
   let requestForm = gui "" ! [identifier "verifyEmail"] << fieldset <<
-                    [ label ! [thefor "email" ] << "Email: "
+                    [ label ! [thefor "email" ] << "Email (must be a @student.chalmers.se: or @dtek.se mail): "
+                    , br
                     , textfield "email" ! [size "20", intAttr "tabindex" 1]
                     , stringToHtml " "
-                    , submit "verifyEmail" "Verify email" ! [intAttr "tabindex" 2]]
+                    , submit "verifyEmail" "Request an account" ! [intAttr "tabindex" 2]]
 
-      -- Fill the content with form if mail command is specified
-      contents = if null (mailCommand cfg)
+  -- Fill the content with form if mail command is specified
+  let contents = if null (mailCommand cfg)
                  then p << "Sorry, email verification is not available."
                  else requestForm
 
@@ -250,24 +251,29 @@ registerUserRequest params = do
                     "Please click on the enclosed link to verify your email."
                   ]
 
-  sendRequestEmail email reqCode
+  -- Check if email is either @dtek.se or @student.chalmers.se
+  if dropWhile (/= '@') email `elem` ["@dtek.se", "@student.chalmers.se"]
+    then do
+    sendRequestEmail email reqCode
 
-  -- Stores email request in file
-  addEmailRequest email reqCode
+    -- Stores email request in file
+    addEmailRequest email reqCode
 
-  -- Render page
-  formattedPage defaultPageLayout
-    { pgShowPageTools = False
-    , pgTabs = []
-    , pgTitle = "Verify your email" }
-    response
+    -- Render page
+    formattedPage defaultPageLayout
+      { pgShowPageTools = False
+      , pgTabs = []
+      , pgTitle = "Verify your email" }
+      response
+
+    else registerUserRequestForm
 
 -- | Generates a link for the email verification message.
 requestLink :: String -> String -> String -> String
 requestLink base' email code =
   exportURL $ foldl add_param
     (fromJust . importURL $ base' ++ "/_verifyEmail")
-    [("email", email), ("request_code", code)]
+    [("email", email), ("request_code", code), ("destination", "/"]
 
 -- | Creates and sends a email verification message to `email` with `code` as
 -- request code.
@@ -362,14 +368,16 @@ registerFromEmailRequestForm email = withData $ \params -> do
 
   return $ gui "" ! [identifier "loginForm"] << fieldset <<
     [ accessQ
-    , label ! [thefor "username"] << ("Username (created from email): ")
+    , label ! [thefor "uname"] << ("Username (created from email): ")
     , br
-    , textfield "username" ! [size "20", strAttr "disabled" "true", value userName]
+    , textfield "uname" ! [size "20", strAttr "disabled" "true", value userName]
     , br
-    , label ! [thefor "email"] << "Email (will not be displayed on the Wiki):"
+    , hidden "username" userName
+    , label ! [thefor "eAddr"] << "Email (will not be displayed on the Wiki):"
     , br
-    , textfield "email" ! [size "20", strAttr "disabled" "true", value email]
+    , textfield "eAddr" ! [size "20", strAttr "disabled" "true", value email]
     , br
+    , hidden "email" email
     , label ! [thefor "password"] << "Password (at least 6 characters):"
     , br
     , X.password "password" ! [size "20", intAttr "tabindex" 1]
