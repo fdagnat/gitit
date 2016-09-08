@@ -430,9 +430,7 @@ sharedForm mbUser = withData $ \params -> do
             , br ! [theclass "req"]
             , textfield "full_name_1" ! [size "20", theclass "req"]
             , br
-            , label ! [thefor "password"]
-                    << ("Password (at least 6 characters," ++
-                        " including at least one non-letter):")
+            , label ! [thefor "password"] << "Password (at least 6 characters)"
             , br
             , X.password "password" ! [size "20", intAttr "tabindex" 4]
             , stringToHtml " "
@@ -453,7 +451,7 @@ sharedValidation :: ValidationType
 sharedValidation validationType params = do
   let isValidUsernameChar c = isAlphaNum c || c == ' '
   let isValidUsername u = length u >= 3 && all isValidUsernameChar u
-  let isValidPassword pw = length pw >= 6 && not (all isAlpha pw)
+  let isValidPassword pw = length pw >= 6
   let accessCode = pAccessCode params
   let uname = pUsername params
   let pword = pPassword params
@@ -599,6 +597,8 @@ formAuthHandlers =
   , dir "_doResetPassword" $ method GET  >> withData resetPassword
   , dir "_doResetPassword" $ method POST >> withData doResetPassword
   , dir "_user" currentUser
+  , dir "_verifyEmail" $ method GET >> withData registerFromEmailRequest
+  , dir "_verifyEmail" $ method POST >> withData registerUser
   ]
 
 loginUserHTTP :: Params -> Handler
