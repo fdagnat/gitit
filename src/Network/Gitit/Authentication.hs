@@ -207,6 +207,7 @@ doResetPassword params = validateReset params $ \user -> do
                          pPassword = pword,
                          pEmail = email }
 
+-- | Prompts the user to insert an email address to send a verification message.
 registerUserRequestForm :: Handler
 registerUserRequestForm = do
   cfg <- getConfig
@@ -230,9 +231,14 @@ registerUserRequestForm = do
     , pgTitle = "Verify your email" }
     contents
 
-
+-- | Handler that fires when user has inserted an email and pressed the request button.
+-- Creates and sends a request message to the supplied email address.
+-- To verify the code sent from the user a copy of the code is stored together with
+-- the email in the email request file.
 registerUserRequest :: Params -> Handler
 registerUserRequest params = do
+  let requestFromParams :: IO (String, String)
+      requestFromParams = (mkEmailRequest . pEmail) params
   -- Extract email and create a request code
   (email, reqCode) <- liftIO requestFromParams
 
@@ -253,20 +259,18 @@ registerUserRequest params = do
   formattedPage defaultPageLayout
     { pgShowPageTools = False
     , pgTabs = []
-    , pgTitle = "Verifying your email" }
+    , pgTitle = "Verify your email" }
     response
 
-  where requestFromParams :: IO (String, String)
-        requestFromParams = (mkEmailRequest . pEmail) params
-
-
+-- | Generates a link for the email verification message.
 requestLink :: String -> String -> String -> String
 requestLink base' email code =
   exportURL $ foldl add_param
     (fromJust . importURL $ base' ++ "/_verifyEmail")
     [("email", email), ("request_code", code)]
 
-
+-- | Creates and sends a email verification message to `email` with `code` as
+-- request code.
 sendRequestEmail :: String -> String -> GititServerPart ()
 sendRequestEmail email code = do
   cfg <- getConfig
