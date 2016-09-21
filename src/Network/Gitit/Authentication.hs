@@ -438,7 +438,9 @@ sharedForm mbUser = withData $ \params -> do
             , br ! [theclass "req"]
             , textfield "full_name_1" ! [size "20", theclass "req"]
             , br
-            , label ! [thefor "password"] << "Password (at least 6 characters)"
+            , label ! [thefor "password"]
+                    << ("Password (at least 6 characters," ++
+                        " including at least one non-letter):")
             , br
             , X.password "password" ! [size "20", intAttr "tabindex" 4]
             , stringToHtml " "
@@ -459,7 +461,7 @@ sharedValidation :: ValidationType
 sharedValidation validationType params = do
   let isValidUsernameChar c = isAlphaNum c || c == ' '
   let isValidUsername u = length u >= 3 && all isValidUsernameChar u
-  let isValidPassword pw = length pw >= 6
+  let isValidPassword pw = length pw >= 6 && not (all isAlpha pw)
   let accessCode = pAccessCode params
   let uname = pUsername params
   let pword = pPassword params
