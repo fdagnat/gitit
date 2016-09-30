@@ -114,6 +114,7 @@ extractConfig cp = do
       cfFrontPage <- get cp "DEFAULT" "front-page"
       cfNoEdit <- get cp "DEFAULT" "no-edit"
       cfNoDelete <- get cp "DEFAULT" "no-delete"
+      cfPrivatePages <- get cp "DEFAULT" "private-pages"
       cfDefaultSummary <- get cp "DEFAULT" "default-summary"
       cfDeleteSummary <- get cp "DEFAULT" "delete-summary"
       cfAccessQuestion <- get cp "DEFAULT" "access-question"
@@ -218,6 +219,7 @@ extractConfig cp = do
         , frontPage            = cfFrontPage
         , noEdit               = splitCommaList cfNoEdit
         , noDelete             = splitCommaList cfNoDelete
+        , privatePages         = splitCommaList cfPrivatePages
         , defaultSummary       = cfDefaultSummary
         , deleteSummary        = cfDeleteSummary
         , accessQuestion       = if null cfAccessQuestion
