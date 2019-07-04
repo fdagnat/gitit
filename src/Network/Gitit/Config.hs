@@ -35,23 +35,19 @@ import qualified Data.Map as M
 import Data.ConfigFile hiding (readfile)
 import Data.List (intercalate)
 import Data.Char (toLower, toUpper, isDigit)
-import Data.Text (pack)
+import qualified Data.Text as T
 import Paths_gitit (getDataFileName)
 import System.FilePath ((</>))
-import Text.Pandoc hiding (MathML, WebTeX, MathJax)
+import Text.Pandoc hiding (ERROR, WARNING, MathJax, MathML, WebTeX, getDataFileName)
 import qualified Control.Exception as E
-import Network.OAuth.OAuth2
+import Network.OAuth.OAuth2 (OAuth2(..), oauthCallback, oauthOAuthorizeEndpoint, oauthClientId, oauthClientSecret)
+import URI.ByteString (parseURI, laxURIParserOptions)
 import qualified Data.ByteString.Char8 as BS
 import Network.Gitit.Compat.Except
 import Control.Monad
 import Control.Monad.Trans
-
-#if MIN_VERSION_pandoc(1,14,0)
 import Text.Pandoc.Error (handleError)
-#else
-handleError :: Pandoc -> Pandoc
-handleError = id
-#endif
+
 
 forceEither :: Show e => Either e a -> a
 forceEither = either (error . show) id
@@ -83,7 +79,7 @@ readfile :: MonadError CPError m
           -> IO (m ConfigParser)
 readfile cp path' = do
   contents <- readFileUTF8 path'
-  return $ readstring cp contents
+  return $ readstring cp $ T.unpack contents
 
 extractConfig :: ConfigParser -> IO Config
 extractConfig cp = do
@@ -142,9 +138,10 @@ extractConfig cp = do
       let (pt, lhs) = parsePageType cfDefaultPageType
       let markupHelpFile = show pt ++ if lhs then "+LHS" else ""
       markupHelpPath <- liftIO $ getDataFileName $ "data" </> "markupHelp" </> markupHelpFile
-      markupHelpText <- liftM (writeHtmlString def . handleError .
-                            readMarkdown def) $
-                            liftIO $ readFileUTF8 markupHelpPath
+      markupHelp' <- liftIO $ readFileUTF8 markupHelpPath
+      markupHelpText <- liftIO $ handleError $ runPure $ do        
+        helpDoc <- readMarkdown def{ readerExtensions = getDefaultExtensions "markdown" } markupHelp'
+        writeHtml5String def helpDoc
 
       mimeMap' <- liftIO $ readMimeTypesFile cfMimeTypesFile
       let authMethod = map toLower cfAuthenticationMethod
@@ -167,7 +164,6 @@ extractConfig cp = do
         , defaultPageType      = pt
         , defaultExtension     = cfDefaultExtension
         , mathMethod           = case map toLower cfMathMethod of
-                                      "jsmath"   -> JsMathScript
                                       "mathml"   -> MathML
                                       "mathjax"  -> MathJax cfMathjaxScript
                                       "google"   -> WebTeX "http://chart.apis.google.com/chart?cht=tx&chl="
@@ -255,21 +251,28 @@ extractGithubConfig ::  (Functor m, MonadError CPError m) => ConfigParser
 extractGithubConfig cp = do
       cfOauthClientId <- getGithubProp "oauthClientId"
       cfOauthClientSecret <- getGithubProp "oauthClientSecret"
-      cfOauthCallback <- getGithubProp "oauthCallback"
-      cfOauthOAuthorizeEndpoint  <- getGithubProp "oauthOAuthorizeEndpoint"
-      cfOauthAccessTokenEndpoint <- getGithubProp "oauthAccessTokenEndpoint"
+      cfOauthCallback <- getUrlProp "oauthCallback"
+      cfOauthOAuthorizeEndpoint  <- getUrlProp "oauthOAuthorizeEndpoint"
+      cfOauthAccessTokenEndpoint <- getUrlProp "oauthAccessTokenEndpoint"
       cfOrg <- if hasGithubProp "github-org"
                  then fmap Just (getGithubProp "github-org")
                  else return Nothing
-      let cfgOAuth2 = OAuth2 { oauthClientId =  BS.pack cfOauthClientId
-                          , oauthClientSecret =  BS.pack cfOauthClientSecret
-                          , oauthCallback = Just $ BS.pack cfOauthCallback
-                          , oauthOAuthorizeEndpoint = BS.pack cfOauthOAuthorizeEndpoint
-                          , oauthAccessTokenEndpoint = BS.pack cfOauthAccessTokenEndpoint
+      let cfgOAuth2 = OAuth2 { oauthClientId = T.pack cfOauthClientId
+                          , oauthClientSecret = T.pack cfOauthClientSecret
+                          , oauthCallback = Just cfOauthCallback
+                          , oauthOAuthorizeEndpoint = cfOauthOAuthorizeEndpoint
+                          , oauthAccessTokenEndpoint = cfOauthAccessTokenEndpoint
                           }
-      return $ githubConfig cfgOAuth2 $ fmap pack cfOrg
+      return $ githubConfig cfgOAuth2 $ fmap T.pack cfOrg
   where getGithubProp = get cp "Github"
         hasGithubProp = has_option cp "Github"
+        getUrlProp prop = getGithubProp prop >>= \s ->
+                            case parseURI laxURIParserOptions (BS.pack s) of
+                              Left e    -> throwError (ParseError $ "couldn't parse url " ++ s
+                                                                    ++ " from (Github/" ++ prop ++ "): "
+                                                                    ++ (show e)
+                                                      , "getUrlProp")
+                              Right uri -> return uri
 
 fromQuotedMultiline :: String -> String
 fromQuotedMultiline = unlines . map doline . lines . dropWhile (`elem` " \t\n")
@@ -317,7 +320,7 @@ getDefaultConfig = getDefaultConfigParser >>= extractConfig
 -- extensions, separated by spaces. Example: text/plain txt text
 readMimeTypesFile :: FilePath -> IO (M.Map String String)
 readMimeTypesFile f = E.catch
-  (liftM (foldr (go . words)  M.empty . lines) $ readFileUTF8 f)
+  (liftM (foldr (go . words)  M.empty . lines . T.unpack) $ readFileUTF8 f)
   handleMimeTypesFileNotFound
      where go []     m = m  -- skip blank lines
            go (x:xs) m = foldr (`M.insert` x) m xs

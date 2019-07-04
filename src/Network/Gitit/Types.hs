@@ -31,10 +31,13 @@ module Network.Gitit.Types (
                            , SessionKey
                            -- we do not export SessionData constructors, in case we need to extend  SessionData with other data in the future
                            , SessionData
+                           , SessionGithubData
                            , sessionData
-                           , sessionDataGithubState
+                           , sessionGithubData
+                           , sessionDataGithubStateUrl
                            , sessionUser
                            , sessionGithubState
+                           , sessionGithubDestination
                            , User(..)
                            , Sessions(..)
                            , Password(..)
@@ -71,7 +74,7 @@ import Text.XHtml (Html)
 import qualified Data.Map as M
 import Data.Text (Text)
 import Data.List (intersect)
-import Data.Time (parseTime)
+import Data.Time (parseTimeM)
 #if MIN_VERSION_time(1,5,0)
 import Data.Time (defaultTimeLocale)
 #else
@@ -96,7 +99,7 @@ data PageType = Markdown
 
 data FileStoreType = Git | Darcs | Mercurial deriving Show
 
-data MathMethod = MathML | JsMathScript | WebTeX String | RawTeX | MathJax String
+data MathMethod = MathML | WebTeX String | RawTeX | MathJax String
                   deriving (Read, Show, Eq)
 
 data AuthenticationLevel = Never | ForModify | ForRead
@@ -188,7 +191,7 @@ data Config = Config {
   -- | Text of password reset email
   resetPasswordMessage :: String,
   -- | Markup syntax help for edit sidebar
-  markupHelp           :: String,
+  markupHelp           :: Text,
   -- | Provide an atom feed?
   useFeed              :: Bool,
   -- | Base URL of wiki, for use in feed
@@ -230,14 +233,19 @@ type SessionKey = Integer
 
 data SessionData = SessionData {
   sessionUser :: Maybe String,
-  sessionGithubState :: Maybe String
+  sessionGithubData :: Maybe SessionGithubData
 } deriving (Read,Show,Eq)
+
+data SessionGithubData = SessionGithubData {
+  sessionGithubState :: String,
+  sessionGithubDestination :: String
+} deriving (Read, Show, Eq)
 
 sessionData :: String -> SessionData
 sessionData user = SessionData (Just user) Nothing
 
-sessionDataGithubState  :: String -> SessionData
-sessionDataGithubState  githubState = SessionData Nothing (Just githubState)
+sessionDataGithubStateUrl :: String -> String -> SessionData
+sessionDataGithubStateUrl githubState destination = SessionData Nothing (Just $ SessionGithubData githubState destination)
 
 data Sessions a = Sessions {unsession::M.Map SessionKey a}
   deriving (Read,Show,Eq)
@@ -309,7 +317,7 @@ data PageLayout = PageLayout
   , pgScripts        :: [String]
   , pgShowPageTools  :: Bool
   , pgShowSiteNav    :: Bool
-  , pgMarkupHelp     :: Maybe String
+  , pgMarkupHelp     :: Maybe Text
   , pgTabs           :: [Tab]
   , pgSelectedTab    :: Tab
   , pgLinkToFeed     :: Bool
@@ -382,7 +390,7 @@ instance FromData Params where
                  return (if null s then Nothing else Just s))
                  `mplus` return Nothing
          fu <- liftM Just (look' "forUser") `mplus` return Nothing
-         si <- liftM (parseTime defaultTimeLocale "%Y-%m-%d") (look' "since")
+         si <- liftM (parseTimeM True defaultTimeLocale "%Y-%m-%d") (look' "since")
                  `mplus` return Nothing  -- YYYY-mm-dd format
          ds <- look' "destination" `mplus` return ""
          ra <- look' "raw"            `mplus` return ""
