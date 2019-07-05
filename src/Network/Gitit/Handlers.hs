@@ -405,16 +405,8 @@ showActivity = withData $ \(params :: Params) -> do
       fileFromChange (Modified f) = f
       fileFromChange (Deleted f)  = f
   base' <- getWikiBase
-  let fileAnchor revis file =
-        if takeExtension file == "." ++ (defaultExtension cfg)
-           then concatHtml
-                [ anchor ! [href $ base' ++ urlForPage (dropExtension file)] << dropExtension file
-                , stringToHtml " ("
-                , anchor ! [href $ base' ++ "/_diff"
-                            ++ urlForPage (dropExtension file)
-                            ++ "?to=" ++ revis] << stringToHtml "diff"
-                , stringToHtml ")"
-                ]
+  let fileAnchor revis file = if takeExtension file == "." ++ (defaultExtension cfg)
+        then anchor ! [href $ base' ++ "/_diff" ++ urlForPage (dropExtension file) ++ "?to=" ++ revis] << dropExtension file
         else anchor ! [href $ base' ++ urlForPage file ++ "?revision=" ++ revis] << file
   let filesFor changes revis = intersperse (stringToHtml " ") $
         map (fileAnchor revis . fileFromChange) changes
@@ -428,8 +420,9 @@ showActivity = withData $ \(params :: Params) -> do
                 (authorName $ revAuthor rev)
         , stringToHtml "): "
         , thespan ! [theclass "subject"] << revDescription rev
-        , stringToHtml " "
+        , stringToHtml " ("
         , thespan ! [theclass "files"] << filesFor (revChanges rev) (revId rev)
+        , stringToHtml ")"
         ]
   let contents = ulist ! [theclass "history"] << map revToListItem hist'
   formattedPage defaultPageLayout{
@@ -734,7 +727,7 @@ categoryPage = do
   base' <- getWikiBase
   let toMatchListItem file = li <<
         [ anchor ! [href $ base' ++ urlForPage (dropExtension file)] << dropExtension file ]
-  let toRemoveListItem cat = li <<
+  let toRemoveListItem cat = li << 
         [ anchor ! [href $ base' ++
         (if null (tail pcategories)
          then "/_categories"
@@ -746,8 +739,8 @@ categoryPage = do
         << ("+" ++ cat) ]
   let matchList = ulist << map toMatchListItem (fst $ unzip matches) +++
                   thediv ! [ identifier "categoryList" ] <<
-                  ulist << (++) (map toAddListItem (nub $ concat $ snd $ unzip matches))
-                                (map toRemoveListItem pcategories)
+                  ulist << (++) (map toAddListItem (nub $ concat $ snd $ unzip matches)) 
+                                (map toRemoveListItem pcategories) 
   formattedPage defaultPageLayout{
                   pgPageName = categoryDescription,
                   pgShowPageTools = False,
