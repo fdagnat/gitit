@@ -90,8 +90,8 @@ authenticateUserThat predicate level handler = do
   page <- getPageName
   let patterns = privatePages cfg
   let pageMatchingPatterns = ((flip G.match page) . G.compile)
-  let is_private = ((not . null) patterns) && (any pageMatchingPatterns patterns)
-  if (level <= requireAuthentication cfg) || is_private -- when the page is private, authen is required
+  let isPrivate = ((not . null) patterns) && (any pageMatchingPatterns patterns)
+  if (level <= requireAuthentication cfg) || isPrivate -- when the page is private, authen is required
      then do
        mbUser <- getLoggedInUser
        rq <- askRq
