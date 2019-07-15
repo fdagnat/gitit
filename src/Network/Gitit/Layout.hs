@@ -137,9 +137,9 @@ exportBox _ _ _ _ = noHtml
 
 linkForTab :: (Tab -> Html -> Html) -> String -> String -> Maybe String -> Tab -> Html
 linkForTab tabli base' page _ HistoryTab =
-  tabli HistoryTab << anchor ! [href $ base' ++ "/_history" ++ urlForPage page] << "history"
+  (tabli ! [identifier "historytab"]) HistoryTab << anchor ! [href $ base' ++ "/_history" ++ urlForPage page] << "history"
 linkForTab tabli _ _ _ DiffTab =
-  tabli DiffTab << anchor ! [href ""] << "diff"
+  (tabli ! [identifier "difftab"]) DiffTab << anchor ! [href ""] << "diff"
 linkForTab tabli base' page rev ViewTab =
   let origPage s = if isDiscussPage s
                       then drop 1 s
@@ -153,11 +153,11 @@ linkForTab tabli base' page rev ViewTab =
                            Just r  -> "?revision=" ++ r
                            Nothing -> ""] << "view"
 linkForTab tabli base' page _ DiscussTab =
-  tabli (if isDiscussPage page then ViewTab else DiscussTab) <<
+  (tabli ! [identifier "discusstab"]) (if isDiscussPage page then ViewTab else DiscussTab) <<
   anchor ! [href $ base' ++ if isDiscussPage page then "" else "/_discuss" ++
                    urlForPage page] << "discuss"
 linkForTab tabli base' page rev EditTab =
-  tabli EditTab << anchor !
+  (tabli ! [identifier "edittab"]) EditTab << anchor !
     [href $ base' ++ "/_edit" ++ urlForPage page ++
             case rev of
                   Just r   -> "?revision=" ++ r ++ "&" ++
