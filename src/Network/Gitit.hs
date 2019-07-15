@@ -141,9 +141,8 @@ wiki conf = do
   let staticHandler = withExpiresHeaders $
         serveDirectory' static `mplus` serveDirectory' defaultStatic
   let debugHandler' = msum [debugHandler | debugMode conf]
-  let privatePageHandler = unlessPrivatePage (authenticate ForRead showPage) (authenticate Never showPage)
   let handlers = debugHandler' `mplus` authHandler conf `mplus`
-                 privatePageHandler `mplus` (msum wikiHandlers)
+                 authenticate ForRead (msum wikiHandlers)
   let fs = filestoreFromConfig conf
   let ws = WikiState { wikiConfig = conf, wikiFileStore = fs }
   if compressResponses conf

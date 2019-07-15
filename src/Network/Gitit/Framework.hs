@@ -28,7 +28,6 @@ module Network.Gitit.Framework (
                                -- * Combinators to exclude certain actions
                                , unlessNoEdit
                                , unlessNoDelete
-                               , unlessPrivatePage
                                -- * Guards for routing
                                , guardCommand
                                , guardPath
@@ -88,7 +87,11 @@ authenticate = authenticateUserThat (const True)
 authenticateUserThat :: (User -> Bool) -> AuthenticationLevel -> Handler -> Handler
 authenticateUserThat predicate level handler = do
   cfg <- getConfig
-  if level <= requireAuthentication cfg
+  page <- getPageName
+  let patterns = privatePages cfg
+  let pageMatchingPatterns = ((flip G.match page) . G.compile)
+  let is_private = ((not . null) patterns) && (any pageMatchingPatterns patterns)
+  if (level <= requireAuthentication cfg) || is_private -- when the page is private, authen is required
      then do
        mbUser <- getLoggedInUser
        rq <- askRq
@@ -99,6 +102,17 @@ authenticateUserThat predicate level handler = do
                             then handler
                             else error "Not authorized."
      else handler
+
+-- | Returns the current page name (derived from the path) or an empty string for path that are not pages.
+getPageName :: GititServerPart String
+getPageName = do
+  conf <- getConfig
+  path' <- getPath
+  if null path'
+     then return (frontPage conf)
+     else if isPage path'
+             then return path'
+             else return ""
 
 -- | Redirects a request to login view, used as a failure handler.
 redirectToLogin :: Handler
@@ -189,22 +203,6 @@ unlessNoDelete responder fallback = withData $ \(params :: Params) -> do
   if page `elem` noDelete cfg
      then withMessages ("Page cannot be deleted." : pMessages params) fallback
      else responder
-
--- | @unlessPrivatePage responder fallback@ runs @responder@ unless the
--- page is specified as private in configuration; in that case, runs
--- @fallback@
-unlessPrivatePage :: Handler
-                  -> Handler
-                  -> Handler
-unlessPrivatePage responder fallback =
-  withData $ \(params :: Params) -> do
-    cfg <- getConfig
-    page <- getPage
-    let patterns = privatePages cfg
-    let pageMatchingPatterns = ((flip G.match page) . G.compile)
-    if ((not . null) patterns) && (any pageMatchingPatterns patterns)
-      then fallback
-      else responder
 
 -- | Returns the current path (subtracting initial commands like @\/_edit@).
 getPath :: ServerMonad m => m String
