@@ -10,3 +10,4 @@ gitit-users
 .cabal-sandbox
 github.conf
 .stack-work
+stack.yaml.lock
