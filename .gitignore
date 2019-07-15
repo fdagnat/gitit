@@ -9,3 +9,4 @@ my.conf
 gitit-users
 .cabal-sandbox
 github.conf
+.stack-work
