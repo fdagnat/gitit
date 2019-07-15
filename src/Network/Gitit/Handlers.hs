@@ -674,7 +674,10 @@ indexPage = do
   listing <- liftIO $ directory fs prefix'
   let isNotDiscussionPage (FSFile f) = isNotDiscussPageFile f
       isNotDiscussionPage (FSDirectory _) = return True
-  prunedListing <- filterM isNotDiscussionPage listing
+  let isNotStaticOrTemplate (FSFile _) = return True
+      isNotStaticOrTemplate (FSDirectory d) =
+        return (not ((staticDir cfg `isPrefixOf` (repositoryPath cfg </> d)) || (templatesDir cfg `isPrefixOf` (repositoryPath cfg </> d))))
+  prunedListing <- filterM isNotDiscussionPage listing >>= filterM isNotStaticOrTemplate
   let htmlIndex = fileListToHtml base' prefix' ext prunedListing
   formattedPage defaultPageLayout{
                   pgPageName = prefix',
