@@ -246,8 +246,8 @@ goToPage :: Handler
 goToPage = withData $ \(params :: Params) -> do
   let gotopage = pGotoPage params
   fs <- getFileStore
-  pruned_files <- liftIO (index fs) >>= filterM isPageFile
-  let allPageNames = map dropExtension pruned_files
+  prunedFiles <- liftIO (index fs) >>= filterM isPageFile
+  let allPageNames = map dropExtension prunedFiles
   let findPage f = find f allPageNames
   let exactMatch f = gotopage == f
   let insensitiveMatch f = (map toLower gotopage) == (map toLower f)
