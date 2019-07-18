@@ -145,9 +145,9 @@ linkForTab tabli base' page rev ViewTab =
                       then drop 1 s
                       else s
   in if isDiscussPage page
-        then tabli DiscussTab << anchor !
+        then (tabli ! [identifier "discusstab"]) DiscussTab << anchor !
               [href $ base' ++ urlForPage (origPage page)] << "page"
-        else tabli ViewTab << anchor !
+        else (tabli ! [identifier "viewtab"]) ViewTab << anchor !
               [href $ base' ++ urlForPage page ++
                       case rev of
                            Just r  -> "?revision=" ++ r
