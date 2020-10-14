@@ -9,5 +9,6 @@ my.conf
 gitit-users
 .cabal-sandbox
 github.conf
-.stack-work
+/.stack-work/
 stack.yaml.lock
+/static/
